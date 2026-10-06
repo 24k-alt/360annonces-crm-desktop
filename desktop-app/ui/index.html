@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CRM</title>
+<style>
+  :root{color-scheme:light dark;--bg:#fff;--fg:#1b1b1b;--mut:#666;--bd:#ebebeb;--bl:#3e63dd}
+  @media (prefers-color-scheme:dark){:root{--bg:#171717;--fg:#eee;--mut:#999;--bd:#2e2e2e}}
+  body{margin:0;height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font:13px Inter,system-ui,sans-serif}
+  main{text-align:center;width:min(380px,100% - 32px)}
+  h1{font-size:16px;margin:0 0 8px}p{color:var(--mut);margin:0 0 16px;line-height:1.5}
+  button,input{height:32px;border-radius:4px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font:inherit;box-sizing:border-box}
+  button{padding:0 14px;cursor:pointer}button.p{background:var(--bl);border-color:var(--bl);color:#fff}
+  input{width:100%;padding:0 10px;margin-bottom:10px}
+  a{color:var(--bl);cursor:pointer;text-decoration:underline;font-size:12px}
+  [hidden]{display:none!important}
+  #err{color:#d6281c}
+</style></head>
+<body><main>
+  <h1 id="title">Connexion…</h1>
+  <p id="msg"></p>
+  <form id="form" hidden>
+    <input id="url" type="url" placeholder="https://crm.votre-agence.com" autocomplete="off" aria-label="Adresse de votre CRM" required>
+    <button class="p" type="submit">Continuer</button>
+    <p id="err" role="alert"></p>
+  </form>
+  <button class="p" id="retry" hidden>Réessayer</button>
+  <p><a id="change" hidden>Changer de CRM</a></p>
+</main>
+<script>
+  // Local page only: the remote CRM origin has no IPC (capability has no `remote` block).
+  const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
+  const $ = (id) => document.getElementById(id);
+  let ws = '';
+  function show(state, text) {
+    $('msg').textContent = text || '';
+    $('retry').hidden = state !== 'offline';
+    $('form').hidden = state !== 'edit';
+    $('change').hidden = state === 'edit';
+  }
+  async function boot() {
+    try { ws = await invoke('get_workspace'); } catch { show('offline', 'Impossible de lire la configuration.'); return; }
+    const host = new URL(ws).host;
+    $('title').textContent = host;
+    show('loading', 'Connexion à ' + host + '…');
+    try {
+      await fetch(ws + 'healthz', { mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      location.replace(ws);
+    } catch {
+      show('offline', 'Impossible de joindre ' + host + '. Vérifiez votre connexion internet ou l’adresse du CRM.');
+    }
+  }
+  $('retry').onclick = boot;
+  $('change').onclick = () => { $('url').value = ws; $('err').textContent = ''; show('edit', 'Adresse de votre CRM (https://…)'); $('url').focus(); };
+  $('form').onsubmit = async (e) => {
+    e.preventDefault();
+    try { await invoke('set_workspace', { url: $('url').value }); boot(); }
+    catch (err) { $('err').textContent = String(err); }
+  };
+  boot();
+</script></body></html>

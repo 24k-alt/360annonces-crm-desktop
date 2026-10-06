@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local splash page only (no `remote` block => the remote CRM origin gets no IPC).",
+  "local": true,
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-load-local-mcp-plugins",
+    "allow-get-workspace",
+    "allow-set-workspace"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "date": "2026-10-06T00:00:00Z",
+  "files": {
+    "windows": {
+      "name": "360annonces-CRM-setup.exe",
+      "size": 0,
+      "sha256": ""
+    },
+    "macArm": {
+      "name": "360annonces-CRM-mac-arm64.dmg",
+      "size": 0,
+      "sha256": ""
+    },
+    "macIntel": {
+      "name": "360annonces-CRM-mac-x64.dmg",
+      "size": 0,
+      "sha256": ""
+    },
+    "linux": {
+      "name": "360annonces-CRM-linux-x64.AppImage",
+      "size": 0,
+      "sha256": ""
+    },
+    "deb": {
+      "name": "360annonces-CRM-linux-x64.deb",
+      "size": 0,
+      "sha256": ""
+    }
+  },
+  "_note": "PLACEHOLDER - overwritten by CI at release time (see FILENAMES.md)"
+}

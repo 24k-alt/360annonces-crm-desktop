@@ -1,0 +1,195 @@
+# Desktop installers (Tauri v2) -- builds desktop-app/ for Windows, macOS (arm64 + x64), Linux.
+# Trigger: push of a tag `desktop-v*`, or manual run (Actions > desktop > Run workflow).
+# Output: a DRAFT GitHub Release with the installers attached (nothing is published automatically).
+#
+# Works UNSIGNED with zero secrets. All secrets below are OPTIONAL and only
+# exported to the build when they are non-empty (see "Optional signing" step):
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD  - updater signature (only useful once
+#                                                                    bundle.createUpdaterArtifacts is enabled)
+#   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID                        - macOS signing + notarization
+#   Windows: no env secrets wired yet; see desktop-app/RELEASING.md (needs signCommand / certificate config).
+# Secret values are never echoed; the step only tests "is it set".
+name: desktop
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create/update the draft release + upload assets (nothing else)
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows-x64, os: windows-latest, target: "" }
+          # Two separate macOS jobs (no universal binary): arm64 native, x64 cross-compiled on the arm64 runner.
+          - { name: macos-arm64, os: macos-latest, target: aarch64-apple-darwin }
+          - { name: macos-x64, os: macos-latest, target: x86_64-apple-darwin }
+          # 22.04 keeps the AppImage/deb glibc baseline reasonably old.
+          - { name: linux-x64, os: ubuntu-22.04, target: "" }
+    defaults:
+      run:
+        working-directory: desktop-app
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libssl-dev libxdo-dev build-essential curl wget file
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-app/src-tauri
+
+      # No package.json by design: tauri-cli comes from cargo. Binary cached via ~/.cargo/bin.
+      - name: Cache tauri-cli
+        id: cli-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri*
+          key: tauri-cli-2-${{ runner.os }}-${{ runner.arch }}
+      - name: Install tauri-cli
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --version "^2" --locked
+
+      # Only regenerate icons if a source logo is committed (desktop-app/app-icon.png, square >=1024px).
+      - name: Generate icons (if source logo exists)
+        run: |
+          if [ -f app-icon.png ]; then cargo tauri icon app-icon.png; else echo "No app-icon.png, keeping committed icons"; fi
+
+      - name: Optional signing (skipped when secrets are absent)
+        env:
+          S_TAURI_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          S_TAURI_KEY_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          S_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          S_APPLE_CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          S_APPLE_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          S_APPLE_ID: ${{ secrets.APPLE_ID }}
+          S_APPLE_PW: ${{ secrets.APPLE_PASSWORD }}
+          S_APPLE_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          export_if_set() { # name value
+            if [ -n "$2" ]; then echo "::add-mask::$2"; echo "$1=$2" >> "$GITHUB_ENV"; echo "signing: $1 set"; fi
+          }
+          export_if_set TAURI_SIGNING_PRIVATE_KEY "$S_TAURI_KEY"
+          export_if_set TAURI_SIGNING_PRIVATE_KEY_PASSWORD "$S_TAURI_KEY_PW"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            export_if_set APPLE_CERTIFICATE "$S_APPLE_CERT"
+            export_if_set APPLE_CERTIFICATE_PASSWORD "$S_APPLE_CERT_PW"
+            export_if_set APPLE_SIGNING_IDENTITY "$S_APPLE_IDENTITY"
+            export_if_set APPLE_ID "$S_APPLE_ID"
+            export_if_set APPLE_PASSWORD "$S_APPLE_PW"
+            export_if_set APPLE_TEAM_ID "$S_APPLE_TEAM"
+          fi
+          echo "done (unsigned if nothing listed above)"
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Workspace this build opens by default (empty = crm.360annonces.com). Users can still change it on the splash page.
+          CRM_DEFAULT_URL: ${{ vars.CRM_DEFAULT_URL }}
+        with:
+          projectPath: desktop-app
+          tauriScript: cargo tauri
+          args: ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+          # Tag push: that tag is used. Manual run: draft release tagged desktop-v<version>.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || 'desktop-v__VERSION__' }}
+          releaseName: "360annonces CRM Desktop v__VERSION__"
+          releaseBody: "Installateurs non signes (voir desktop-app/RELEASING.md). Brouillon: verifier puis publier."
+          releaseDraft: true
+          prerelease: false
+
+  # Adds stable, version-free file names + latest.json data to the SAME draft release, so download links never change.
+  # Drafts are not reachable by tag through `gh release download/upload`, so this uses the REST API (release id + asset ids).
+  # UNTESTED until the first real run; the asset-name patterns below match tauri-action's usual output
+  # (e.g. "360annonces CRM_0.1.0_x64-setup.exe") and may need adjusting after the first release.
+  stable-names:
+    name: stable file names
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename and re-upload
+        run: |
+          set -euo pipefail
+          R="$GITHUB_REPOSITORY"
+          if [ -z "$TAG" ]; then
+            echo "Manual run: tag is derived from the draft release created by tauri-action"
+            TAG=$(gh api "repos/$R/releases" --jq '[.[] | select(.draft==true and (.tag_name|startswith("desktop-v")))][0].tag_name')
+          fi
+          export TAG
+          REL=$(gh api "repos/$R/releases" --jq "[.[] | select(.tag_name==\"$TAG\")][0]")
+          RID=$(echo "$REL" | jq -r .id)
+          UPLOAD=$(echo "$REL" | jq -r .upload_url | sed 's/{?name,label}//')
+          mkdir work && cd work
+          echo "$REL" | jq -r '.assets[] | "\(.id)\t\(.name)"' | while IFS=$'\t' read -r id name; do
+            gh api -H "Accept: application/octet-stream" "repos/$R/releases/assets/$id" > "$(echo "$name" | tr ' ' '_')"
+          done
+          ls -la
+          pick() { ls | grep -E "$1" | grep -v '^360annonces-CRM-' | head -1; }
+          declare -A MAP=(
+            [360annonces-CRM-setup.exe]="$(pick 'x64-setup\.exe$')"
+            [360annonces-CRM-mac-arm64.dmg]="$(pick 'aarch64\.dmg$')"
+            [360annonces-CRM-mac-x64.dmg]="$(pick '_x64\.dmg$')"
+            [360annonces-CRM-linux-x64.AppImage]="$(pick '\.AppImage$')"
+            [360annonces-CRM-linux-x64.deb]="$(pick '\.deb$')"
+          )
+          for stable in "${!MAP[@]}"; do
+            src="${MAP[$stable]}"
+            [ -n "$src" ] || { echo "::warning::no asset found for $stable"; continue; }
+            cp "$src" "$stable"
+            curl -sS -f -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/octet-stream" \
+              --data-binary @"$stable" "$UPLOAD?name=$stable" > /dev/null
+            echo "uploaded $stable"
+          done
+          python3 - <<'PY' > latest.json
+          import json, hashlib, os, datetime
+          names = {"windows": "360annonces-CRM-setup.exe", "macArm": "360annonces-CRM-mac-arm64.dmg", "macIntel": "360annonces-CRM-mac-x64.dmg", "linux": "360annonces-CRM-linux-x64.AppImage", "deb": "360annonces-CRM-linux-x64.deb"}
+          files = {k: {"name": v, "size": os.path.getsize(v), "sha256": hashlib.sha256(open(v, "rb").read()).hexdigest()} for k, v in names.items() if os.path.exists(v)}
+          print(json.dumps({"version": os.environ["TAG"].removeprefix("desktop-v"), "date": datetime.datetime.now(datetime.timezone.utc).isoformat(), "files": files}, indent=2))
+          PY
+      - name: Put latest.json next to the download page
+        run: cp work/latest.json "$GITHUB_WORKSPACE/desktop-download/latest.json"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: desktop-download
+
+  pages:
+    name: publish download page
+    needs: stable-names
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

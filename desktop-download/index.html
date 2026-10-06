@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Télécharger 360annonces CRM</title>
+<meta name="description" content="Application de bureau 360annonces CRM pour Windows, macOS et Linux.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233e63dd'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='700' text-anchor='middle' fill='white' font-family='sans-serif'%3E3%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: twenty-real-estate-crm/agency-crm/shared/front-components/twenty-tokens.ts */
+:root{--bg:#fcfcfc;--card:#fff;--soft:#f1f1f1;--border:#ebebeb;--strong:#d6d6d6;--t1:#333;--t2:#666;--t3:#999;
+--blue:#3e63dd;--blue-h:#3a5bc7;--blue-bg:#0047f112;--blue-b:#abbdf9;--warn-bg:#fff8e1;--warn-b:#f0d58a;--warn-t:#7a5300;
+--sh:0 2px 4px #0000000a,0 0 4px #00000014}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#171717;--card:#1b1b1b;--soft:#1d1d1d;--border:#222;--strong:#3a3a3a;--t1:#ebebeb;--t2:#b3b3b3;--t3:#818181;
+--blue-bg:#3e63dd26;--blue-b:#3e63dd80;--blue-h:#5a78e6;--warn-bg:#2b2410;--warn-b:#5c4a14;--warn-t:#e8c766}}
+*{box-sizing:border-box}
+html{font-size:13px}
+body{margin:0;background:var(--bg);color:var(--t1);font:400 1rem/1.5 Inter,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:600px;margin:0 auto;padding:40px 16px 56px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:1.2rem;margin-bottom:32px}
+.brand svg{width:28px;height:28px}
+h1{font-size:1.9rem;line-height:1.2;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
+.lead{color:var(--t2);margin:0 0 24px;font-size:1.1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);padding:20px;margin-bottom:16px}
+.seg{display:inline-flex;gap:2px;background:var(--soft);border:1px solid var(--border);border-radius:8px;padding:2px;margin-bottom:16px}
+.seg button{font:inherit;color:var(--t2);background:none;border:0;border-radius:4px;padding:5px 12px;cursor:pointer;min-height:28px}
+.seg button[aria-pressed=true]{background:var(--card);color:var(--t1);font-weight:500;box-shadow:var(--sh)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;background:var(--blue);color:#fff;border-radius:4px;font-weight:500;font-size:1.15rem;text-decoration:none;padding:0 16px}
+.btn:hover{background:var(--blue-h)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.meta{color:var(--t2);text-align:center;margin:10px 0 0;min-height:1.5em}
+.alt{text-align:center;margin:12px 0 0;color:var(--t2)}
+.alt:empty{display:none}
+a{color:var(--blue)}
+h2{font-size:1.23rem;font-weight:600;margin:0 0 12px}
+ol.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+ol.steps li{counter-increment:s;position:relative;padding:0 0 14px 36px}
+ol.steps li:last-child{padding-bottom:0}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:999px;background:var(--blue-bg);border:1px solid var(--blue-b);color:var(--blue);font-weight:600;font-size:.92rem;display:grid;place-items:center}
+ol.steps b{font-weight:600}
+.warn{background:var(--warn-bg);border:1px solid var(--warn-b);color:var(--warn-t);border-radius:8px;padding:12px 14px;margin-top:16px}
+.warn p{margin:0 0 6px}.warn p:last-child{margin:0}
+kbd{font:inherit;font-weight:500;background:var(--soft);border:1px solid var(--border);border-radius:4px;padding:0 5px;color:var(--t1)}
+code{font:.92rem ui-monospace,Consolas,monospace;background:var(--soft);border:1px solid var(--border);border-radius:4px;padding:1px 5px;word-break:break-all;color:var(--t1)}
+.hash{display:flex;gap:8px;align-items:center;margin:8px 0}
+.hash code{flex:1;min-width:0}
+.hash button{font:inherit;border:1px solid var(--strong);background:var(--card);color:var(--t1);border-radius:4px;padding:4px 10px;cursor:pointer;min-height:28px}
+details summary{cursor:pointer;font-weight:500}
+details>div{margin-top:10px;color:var(--t2)}
+.sm{color:var(--t2);font-size:.92rem}
+.vh{position:absolute;left:-9999px}
+footer{color:var(--t3);text-align:center;font-size:.92rem;margin-top:24px}
+[data-os-only]{display:none}
+html[data-os=windows] [data-os-only~=windows],html[data-os=mac] [data-os-only~=mac],html[data-os=linux] [data-os-only~=linux]{display:block}
+html:not([data-os]) [data-os-only~=windows]{display:block}
+@media(max-width:480px){h1{font-size:1.6rem}main{padding-top:24px}.card{padding:16px}.seg{display:flex}.seg button{flex:1}}
+@media(prefers-reduced-motion:no-preference){.btn{transition:background .15s}}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b7ae8"/><stop offset="1" stop-color="#2f4cb3"/></linearGradient></defs><rect x="1" y="1" width="30" height="30" rx="7" fill="url(#g)"/><path d="M16 6.8a9.2 9.2 0 1 0 8.6 5.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><text x="16" y="21" font-size="13" font-weight="700" text-anchor="middle" fill="#fff" font-family="Inter,Segoe UI,sans-serif">3</text></svg>
+    360annonces
+  </div>
+
+  <h1>Installez 360annonces CRM sur votre ordinateur</h1>
+  <p class="lead">Une application, un clic. Vos clients, biens et visites s'ouvrent comme n'importe quel programme.</p>
+
+  <section class="card" aria-labelledby="dl">
+    <h2 id="dl" class="vh">Téléchargement</h2>
+    <div class="seg" role="group" aria-label="Système d'exploitation">
+      <button type="button" data-set="windows" aria-pressed="false">Windows</button>
+      <button type="button" data-set="mac" aria-pressed="false">macOS</button>
+      <button type="button" data-set="linux" aria-pressed="false">Linux</button>
+    </div>
+    <a id="dl-btn" class="btn" href="#">Télécharger pour Windows</a>
+    <p id="meta" class="meta" aria-live="polite"></p>
+    <p id="alt" class="alt"></p>
+    <noscript><p class="sm">JavaScript est désactivé : <a href="https://github.com/24k-alt/crm-eco-ecosystem/releases/latest">ouvrir la page des versions</a>.</p></noscript>
+  </section>
+
+  <section class="card" aria-labelledby="inst">
+    <h2 id="inst">Installer en 3 étapes</h2>
+
+    <div data-os-only="windows">
+      <ol class="steps">
+        <li><b>Ouvrez le fichier téléchargé</b> (<code>360annonces-CRM-setup.exe</code>, dans « Téléchargements »).</li>
+        <li><b>Si Windows affiche « Windows a protégé votre PC »</b> : cliquez sur <kbd>Informations complémentaires</kbd>, puis sur <kbd>Exécuter quand même</kbd>.</li>
+        <li><b>Cliquez sur « Suivant »</b> puis <b>« Terminer »</b>. L'application se lance et un raccourci apparaît sur le Bureau. Aucun mot de passe administrateur n'est demandé.</li>
+      </ol>
+      <div class="warn"><p><b>Pourquoi cet avertissement ?</b></p><p>Windows se méfie de tout programme dont l'éditeur n'a pas encore payé un certificat de signature. Ce message ne veut pas dire que le fichier est dangereux : il signale seulement que Windows ne connaît pas encore cet éditeur. Vous pouvez comparer l'empreinte plus bas.</p></div>
+    </div>
+
+    <div data-os-only="mac">
+      <ol class="steps">
+        <li><b>Ouvrez le fichier <code>.dmg</code></b> puis glissez « 360annonces CRM » dans le dossier Applications.</li>
+        <li><b>Au premier lancement, faites un clic droit</b> (ou <kbd>ctrl</kbd> + clic) sur l'application, puis <kbd>Ouvrir</kbd>.</li>
+        <li><b>Confirmez avec « Ouvrir »</b> dans la fenêtre qui apparaît. C'est nécessaire une seule fois.</li>
+      </ol>
+      <div class="warn"><p><b>Pourquoi cet avertissement ?</b></p><p>macOS bloque les applications qui ne sont pas encore « notariées » par Apple (programme payant). Clic droit &gt; Ouvrir est la méthode prévue par Apple pour faire confiance à une application que vous avez choisie.</p>
+      <p>Si macOS annonce « l'app est endommagée » : ouvrez le Terminal et tapez <code>xattr -dr com.apple.quarantine "/Applications/360annonces CRM.app"</code></p></div>
+    </div>
+
+    <div data-os-only="linux">
+      <ol class="steps">
+        <li><b>Téléchargez le fichier</b> <code>.AppImage</code> (ou le paquet <code>.deb</code> sous Ubuntu/Debian).</li>
+        <li><b>Rendez-le exécutable</b> : clic droit &gt; Propriétés &gt; « Autoriser l'exécution », ou <code>chmod +x 360annonces-CRM-linux-x64.AppImage</code>.</li>
+        <li><b>Double-cliquez dessus.</b> Pour le <code>.deb</code> : <code>sudo apt install ./360annonces-CRM-linux-x64.deb</code>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="sum">
+    <h2 id="sum">Vérifier le fichier (facultatif)</h2>
+    <p class="sm" style="margin:0">Empreinte SHA-256 du fichier proposé ci-dessus :</p>
+    <div class="hash"><code id="sha">indisponible</code><button type="button" id="copy">Copier</button></div>
+    <details><summary>Comment comparer ?</summary><div>
+      <p style="margin:0 0 6px" data-os-only="windows">Dans PowerShell : <code>certutil -hashfile "$env:USERPROFILE\Downloads\360annonces-CRM-setup.exe" SHA256</code></p>
+      <p style="margin:0 0 6px" data-os-only="mac">Dans le Terminal : <code>shasum -a 256 ~/Downloads/360annonces-CRM-mac-arm64.dmg</code></p>
+      <p style="margin:0 0 6px" data-os-only="linux">Dans un terminal : <code>sha256sum ~/Téléchargements/360annonces-CRM-linux-x64.AppImage</code></p>
+      Les deux séquences doivent être identiques.
+    </div></details>
+  </section>
+
+  <footer>Besoin d'aide ? Contactez votre administrateur 360annonces. · <a href="https://crm.360annonces.com">Ouvrir le CRM dans le navigateur</a></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
