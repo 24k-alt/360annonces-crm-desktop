@@ -200,3 +200,36 @@ code, .mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; f
 @keyframes pop { from { transform: translateY(-6px); opacity: 0; } }
 
 .mrow .chip { min-width: 52px; justify-content: center; }
+
+/* slice 1: honest labels, live run, first-run cards */
+.tag { display: inline-flex; align-items: center; padding: 0 6px; border: 1px dashed var(--warn-line); border-radius: 999px; color: var(--warn); font-size: 11px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.nav .tag { margin-left: auto; }
+.chip.ro { background: var(--accent-bg); color: var(--accent-text); white-space: normal; }
+.chip.ro.sm { font-size: 11px; }
+.dot.setup { background: var(--warn); }
+.starter:disabled { opacity: .55; cursor: not-allowed; }
+.askbar input:disabled { cursor: not-allowed; }
+.run { display: grid; gap: 12px; }
+.run > header { display: flex; align-items: center; gap: 8px; }
+.run > header h3 { flex: 1; min-width: 0; font-size: 14px; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.feed li { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+.feed .ic { width: 20px; height: 20px; display: grid; place-items: center; flex: none; }
+.feed li.past { color: var(--fg2); }
+.feed li.past .ic { color: var(--ok); }
+.run.error .feed li:last-child .ic { color: var(--bad); }
+.feed li.now { font-weight: 500; }
+.answer { border: 1px solid var(--accent-line); background: var(--accent-bg); border-radius: var(--r8); padding: 12px 14px; display: grid; gap: 8px; }
+.answer .ahead { display: flex; align-items: center; gap: 8px; }
+.answer .ahead b { flex: 1; font-size: 13px; }
+.answer .atext { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+.detail { display: block; min-width: 240px; white-space: pre-wrap; word-break: break-word; }
+.trace td:nth-child(5) { min-width: 200px; }
+.setup { display: grid; gap: 10px; border-color: var(--warn-line); }
+.setup h3 { font-size: 14px; }
+.how { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.setup-form { display: grid; gap: 14px; }
+.setup-form label { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.setup-form .row { display: flex; gap: 8px; }
+.setup-form input, .setup-form select { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--r8); background: var(--bg); }
+.setup-form .small { margin-top: 4px; }

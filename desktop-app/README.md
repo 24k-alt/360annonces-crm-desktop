@@ -23,7 +23,7 @@ Tests: `cargo test --lib` covers the URL allowlist (lookalike hosts, userinfo, p
 
 ## Measurements (honest)
 
-Method: `cargo build --release` (`opt-level=z`, LTO, `panic=abort`, strip) in `rust:1-bookworm` + WebKitGTK 4.1 on **Linux aarch64**, run under Xvfb (1280x900) in a memory-capped container with `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` (bwrap does not work in docker), no GPU (software rendering). Values from `/proc/<pid>/smaps_rollup`, one run each, idle at +60 s.
+Method: `cargo build --release` (`opt-level=z`, LTO, `panic=abort`, strip) in `rust:1-bookworm` + WebKitGTK 4.1 on **Linux aarch64** (Oracle ARM host), run under Xvfb (1280x900) in a memory-capped container with `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` (bwrap does not work in docker), no GPU (software rendering). Values from `/proc/<pid>/smaps_rollup`, one run each, idle at +60 s.
 
 - Release binary (aarch64, stripped, excludes the installer and the system WebView): **3.41 MB**. Not measured: x86_64, Windows `.exe`, NSIS/deb/AppImage sizes.
 - Splash only (network off, so the splash stays):

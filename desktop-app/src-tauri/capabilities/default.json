@@ -9,6 +9,7 @@
   "permissions": [
     "allow-load-local-mcp-plugins",
     "allow-get-workspace",
-    "allow-set-workspace"
+    "allow-set-workspace",
+    "allow-open-cockpit"
   ]
 }

@@ -4,8 +4,12 @@ import { ThinkingOrb } from 'thinking-orbs'
 import { BotAvatar } from 'bot-avatars'
 import {
   IDEAS, INITIAL_APPROVALS, INITIAL_MEMORY, INITIAL_TASKS, STARTERS, tpl,
-  type Approval, type Col, type Memory, type Role, type Task,
+  type Approval, type Col, type Memory, type Role, type Starter, type Task,
 } from './data'
+import { isMock, mockState, type Scenario } from './ipc'
+import {
+  KeyCard, LoadErrorCard, Lock, Preview, ReadOnly, RunCard, SettingsPanel, SignedOutCard, useAgent, useOnline, type Agent,
+} from './Live'
 
 type View = 'today' | 'board' | 'approvals' | 'memory' | 'journal'
 type Sim = 'normal' | 'empty' | 'error' | 'offline'
@@ -50,6 +54,7 @@ function Icon({ n, size = 16 }: { n: string; size?: number }) {
 export function App() {
   const reduced = useReducedMotion()
   const [theme, setTheme] = useState<Theme>(() => (q.get('theme') as Theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+  // Real app: no role in the IPC contract yet, so admin only via ?role=admin on the window URL (UI hint, NOT a security boundary).
   const [role, setRole] = useState<Role>(q.get('role') === 'admin' ? 'admin' : 'employee')
   const [sim, setSim] = useState<Sim>((q.get('sim') as Sim) || 'normal')
   const [view, setView] = useState<View>((q.get('view') as View) || 'today')
@@ -60,8 +65,13 @@ export function App() {
   const [drawer, setDrawer] = useState<{ id: string; details: boolean } | null>(q.get('drawer') ? { id: q.get('drawer')!, details: q.get('details') === '1' } : null)
   const [toast, setToast] = useState('')
   const heroInput = useRef<HTMLInputElement>(null)
+  const agent = useAgent()
+  const netOn = useOnline()
+  const [ask, setAsk] = useState('')
+  const [scenario, setScenario] = useState<Scenario>(mockState.scenario)
+  const [settingsOpen, setSettingsOpen] = useState(q.get('settings') === '1')
 
-  const online = sim !== 'offline'
+  const online = sim !== 'offline' // mock pages only; the real loop uses agent.* and navigator.onLine
   const empty = sim === 'empty'
   const failed = sim === 'error'
   const visTasks = empty ? [] : tasks
@@ -123,6 +133,18 @@ export function App() {
     setToast(online ? `C'est lancé : « ${t.title} »` : `Hors ligne : « ${t.title} » partira dès le retour de la connexion.`)
   }, [online])
 
+  // Real slice-1 entry point: command bar, starters, palette, ideas all land here.
+  const runTask = useCallback(async (task: string) => {
+    setPalette(false); setView('today')
+    if (!agent.ready) { setToast("Terminez d'abord la configuration ci-dessous."); return }
+    if (!navigator.onLine) { setToast('Pas de connexion internet : impossible de lancer la demande.'); return }
+    const err = await agent.run(task)
+    setToast(err ?? `C'est lancé : « ${task} »`)
+  }, [agent])
+  const pickStarter = (s: Starter) => {
+    if (s.edit) { setPalette(false); setView('today'); setAsk(s.task); setTimeout(() => heroInput.current?.focus(), 0) } else runTask(s.task)
+  }
+
   const decide = (id: string, status: 'sending' | 'rejected') => {
     setApprovals(a => a.map(x => (x.id === id ? { ...x, status } : x)))
     if (status === 'sending') {
@@ -158,19 +180,29 @@ export function App() {
           {nav.map(n => (
             <button key={n.id} className="nav" aria-current={view === n.id ? 'page' : undefined} onClick={() => setView(n.id)}>
               <Icon n={n.id} />{n.label}
-              {n.id === 'approvals' && pending > 0 && <span className="badge" aria-label={`${pending} à valider`}>{pending}</span>}
+              {n.id !== 'today' && <Preview />}
             </button>
           ))}
         </nav>
         <div className="proto">
-          <b>Prototype</b>
-          <span>Données fictives. Aucun message ne part.</span>
-          <label>Simuler un état
-            <select value={sim} onChange={e => setSim(e.target.value as Sim)}>
-              <option value="normal">Normal</option><option value="empty">Vide</option>
-              <option value="error">Erreur</option><option value="offline">Hors ligne</option>
-            </select>
-          </label>
+          <b>{isMock ? 'Prototype (simulation)' : 'Aperçu'}</b>
+          <span>{isMock ? 'Aucun service réel : tout est simulé.' : 'Les pages marquées « Aperçu » montrent des exemples fictifs. Seule la page d’accueil est réelle.'}</span>
+          {isMock && (
+            <label>Scénario de l'assistant
+              <select value={scenario} onChange={e => { const v = e.target.value as Scenario; mockState.scenario = v; setScenario(v); agent.refresh() }}>
+                <option value="normal">Normal</option><option value="error">Erreur du service</option>
+                <option value="signedout">Non connecté au CRM</option>
+              </select>
+            </label>
+          )}
+          {isMock && (
+            <label>Pages d'aperçu
+              <select value={sim} onChange={e => setSim(e.target.value as Sim)}>
+                <option value="normal">Normal</option><option value="empty">Vide</option>
+                <option value="error">Erreur</option><option value="offline">Hors ligne</option>
+              </select>
+            </label>
+          )}
         </div>
       </aside>
 
@@ -182,23 +214,31 @@ export function App() {
             </button>
           )}
           <span className="sp" />
-          <div className="seg" role="group" aria-label="Rôle (démonstration)">
-            <button aria-pressed={role === 'employee'} onClick={() => setRole('employee')}>Employé</button>
-            <button aria-pressed={role === 'admin'} onClick={() => setRole('admin')}>Admin</button>
-          </div>
+          {isMock && (
+            <div className="seg" role="group" aria-label="Rôle (démonstration)">
+              <button aria-pressed={role === 'employee'} onClick={() => setRole('employee')}>Employé</button>
+              <button aria-pressed={role === 'admin'} onClick={() => setRole('admin')}>Admin</button>
+            </div>
+          )}
+          <button className="btn" onClick={() => setSettingsOpen(true)}>Réglages</button>
           <button className="btn" onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))} aria-label={theme === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre'}>
             {theme === 'dark' ? 'Clair' : 'Sombre'}
           </button>
         </header>
 
         <main className="content" id="main">
-          {!online && (
+          {view !== 'today' && (
+            <div className="banner warn" role="note" style={{ maxWidth: view === 'board' ? 1200 : 1040, margin: '0 auto 16px' }}>
+              <div><b>Aperçu.</b> Cette page montre des exemples fictifs pour imaginer la suite. Rien ici n'est réel et rien n'est enregistré ni envoyé.</div>
+            </div>
+          )}
+          {!online && view !== 'today' && (
             <div className="banner bad" role="status" style={{ maxWidth: 1040, margin: '0 auto 16px' }}>
               <div><b>Vous êtes hors ligne.</b> Laya est injoignable. Vos demandes sont gardées et partiront au retour de la connexion. Les approbations sont suspendues.</div>
             </div>
           )}
-          {view === 'today' && <Today {...common} theme={theme} reduced={reduced} running={running} pending={pending} heroInput={heroInput}
-            onAsk={t => createTask('libre', t)} onStart={createTask} goto={setView} />}
+          {view === 'today' && <Today {...common} theme={theme} reduced={reduced} pending={pending} heroInput={heroInput} agent={agent} netOn={netOn}
+            text={ask} setText={setAsk} onAsk={runTask} onStarter={pickStarter} goto={setView} />}
           {view === 'board' && <Board {...common} tasks={visTasks} approvals={visApprovals} reduced={reduced} theme={theme}
             open={(id, details) => setDrawer({ id, details })} goto={setView} onStart={t => setTasks(ts => ts.map(x => (x.id === t ? { ...x, col: 'running', step: 0, scheduled: undefined, when: 'Démarré à l\'instant' } : x)))} />}
           {view === 'approvals' && <Approvals {...common} approvals={visApprovals} tasks={tasks} decide={decide}
@@ -210,7 +250,8 @@ export function App() {
         </main>
       </div>
 
-      {palette && <Palette close={() => setPalette(false)} start={createTask} online={online} />}
+      {palette && <Palette close={() => setPalette(false)} run={runTask} pick={pickStarter} />}
+      {settingsOpen && <SettingsDialog agent={agent} close={() => setSettingsOpen(false)} />}
       {drawer && <Drawer task={tasks.find(t => t.id === drawer.id)} role={role} details={drawer.details && role === 'admin'}
         setDetails={d => setDrawer({ ...drawer, details: d })} close={() => setDrawer(null)} replay={(t: Task) => { setDrawer(null); createTask(t.tpl, t.title, true) }} />}
       <div className="sr-only" role="status" aria-live="polite">{toast}</div>
@@ -235,49 +276,71 @@ function Empty({ title, text, children }: { title: string; text: string; childre
 }
 
 /* ---------- Aujourd'hui ---------- */
-function Today(p: Common & { theme: Theme; reduced: boolean; running: boolean; pending: number; heroInput: React.RefObject<HTMLInputElement | null>; onAsk: (t: string) => void; onStart: (tpl: string) => void; goto: (v: View) => void }) {
-  const [text, setText] = useState('')
+function Today(p: Common & { theme: Theme; reduced: boolean; pending: number; heroInput: React.RefObject<HTMLInputElement | null>; agent: Agent; netOn: boolean; text: string; setText: (t: string) => void; onAsk: (t: string) => void; onStarter: (s: Starter) => void; goto: (v: View) => void }) {
+  const { agent: a, text, setText } = p
   const [dismissed, setDismissed] = useState<string[]>([])
   const [why, setWhy] = useState<string | null>(null)
-  if (p.failed) return <ErrorState retry={p.retry} />
   const ideas = p.empty ? [] : IDEAS.filter(i => !dismissed.includes(i.id))
   const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const state = !p.online ? 'off' : p.running ? 'work' : 'idle'
+  const setup = a.loadErr ? 'error' : !a.session || !a.settings ? 'loading' : !a.session.signed_in ? 'signedout' : !a.settings.openrouter_key_set ? 'nokey' : null
+  const canAsk = a.ready && p.netOn
+  const state = setup ? 'setup' : !p.netOn ? 'off' : a.running ? 'work' : 'idle'
+  const label = { setup: setup === 'loading' ? 'Chargement…' : 'Configuration à terminer', off: 'Pas de connexion internet', work: 'Laya travaille sur votre demande', idle: 'Laya est disponible' }[state]
+  const placeholder = canAsk ? 'Que voulez-vous faire ? Ex. : quelles conversations attendent une réponse ?' : setup ? "Terminez d'abord la configuration ci-dessous" : 'Reconnectez-vous à internet pour continuer'
+  const submit = () => { if (text.trim() && canAsk) { p.onAsk(text.trim()); setText('') } }
   return (
     <div className="page">
       <div className="hero">
-        <BotAvatar type="clover" size={64} state={p.running ? 'working' : 'default'} paused={p.reduced || !p.online} aria-hidden="true" />
+        <BotAvatar type="clover" size={64} state={a.running ? 'working' : 'default'} paused={p.reduced || state === 'off' || state === 'setup'} aria-hidden="true" />
         <div>
-          <h1>Bonjour Nadia</h1>
+          <h1>Bonjour</h1>
           <div className="status">
             <span className={`dot ${state}`} aria-hidden="true" />
-            <span>{state === 'off' ? 'Laya est injoignable' : state === 'work' ? 'Laya travaille sur vos tâches' : 'Laya est disponible'} · <span style={{ textTransform: 'capitalize' }}>{date}</span></span>
+            <span>{label} · <span style={{ textTransform: 'capitalize' }}>{date}</span>{a.session?.signed_in && a.session.workspace ? ` · ${a.session.workspace}` : ''}</span>
           </div>
         </div>
       </div>
 
+      {!p.netOn && <div className="banner bad" role="status"><div><b>Pas de connexion internet.</b> Laya ne peut pas répondre tant que la connexion n'est pas revenue. Relancez votre demande ensuite.</div></div>}
+
       <section aria-label="Que voulez-vous faire ?" style={{ display: 'grid', gap: 12 }}>
-        <BorderBeam size="line" colorVariant="ocean" theme={p.theme} active={p.running && !p.reduced} style={{ borderRadius: 12 }}>
-          <form className="askbar" aria-busy={p.running} onSubmit={e => { e.preventDefault(); if (text.trim()) { p.onAsk(text.trim()); setText('') } }}>
+        <BorderBeam size="line" colorVariant="ocean" theme={p.theme} active={a.running && !p.reduced} style={{ borderRadius: 12 }}>
+          <form className="askbar" aria-busy={a.running} onSubmit={e => { e.preventDefault(); submit() }}>
             <Icon n="search" size={18} />
-            <input ref={p.heroInput} value={text} onChange={e => setText(e.target.value)} aria-label="Que voulez-vous faire ?" placeholder="Que voulez-vous faire ? Ex. : écrire à Sofia pour confirmer la visite" />
+            <input ref={p.heroInput} value={text} disabled={!canAsk} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setText(''); e.currentTarget.blur() } }}
+              aria-label="Que voulez-vous faire ?" placeholder={placeholder} />
             <kbd aria-hidden="true">Ctrl K</kbd>
-            <button className="btn primary" type="submit" disabled={!text.trim()}>Lancer</button>
+            <button className="btn primary" type="submit" disabled={!text.trim() || !canAsk}>Lancer</button>
           </form>
         </BorderBeam>
+        <div><ReadOnly /></div>
+        {setup === 'error' && <LoadErrorCard retry={a.refresh} />}
+        {setup === 'signedout' && <SignedOutCard recheck={a.refresh} workspaceHint={a.session?.workspace} />}
+        {setup === 'nokey' && a.settings && <KeyCard settings={a.settings} onSaved={a.refresh} />}
         <div className="starters">
           {STARTERS.map(s => (
-            <button key={s.id} className="starter" onClick={() => p.onStart(s.id)}>
+            <button key={s.id} className="starter" disabled={!canAsk} onClick={() => p.onStarter(s)}>
               <b>{s.title}</b><span>{s.hint}</span>
             </button>
           ))}
         </div>
       </section>
 
+      {a.runs.length > 0 && (
+        <section aria-labelledby="runs-h" style={{ display: 'grid', gap: 12 }}>
+          <div className="sectionhead"><h2 id="runs-h">Vos demandes</h2><span>Les réponses ne sont pas conservées si vous fermez la fenêtre.</span></div>
+          {a.runs.slice(0, 5).map(r => (
+            <RunCard key={r.id} run={r} admin={p.role === 'admin'} theme={p.theme} reduced={p.reduced}
+              cancel={() => a.cancel(r.id)} retry={() => p.onAsk(r.task)} />
+          ))}
+        </section>
+      )}
+
       <section aria-labelledby="ideas-h">
-        <div className="sectionhead"><h2 id="ideas-h">Idées du jour</h2><span>Laya a regardé votre agence ce matin. Rien n'est lancé sans vous.</span></div>
+        <div className="sectionhead"><h2 id="ideas-h">Idées du jour</h2><Preview /><span>Exemples fictifs. Laya ne regarde pas encore votre agence toute seule.</span></div>
         {ideas.length === 0 ? (
-          <Empty title={p.empty ? 'Pas encore d\'idées' : 'Vous avez tout vu pour le moment'} text="Laya vous proposera de nouvelles idées demain matin, ou si quelque chose d'important arrive." />
+          <Empty title={p.empty ? "Pas encore d'idées" : 'Vous avez tout vu pour le moment'} text="Laya vous proposera de nouvelles idées demain matin, ou si quelque chose d'important arrive." />
         ) : (
           <div className="ideas">
             {ideas.map(i => (
@@ -286,7 +349,7 @@ function Today(p: Common & { theme: Theme; reduced: boolean; running: boolean; p
                 <p className="muted">{i.body}</p>
                 {why === i.id && <p className="why" id={`why-${i.id}`}>{i.why}</p>}
                 <div className="acts">
-                  <button className="btn sm primary" onClick={() => { p.onStart(i.tpl); setDismissed(d => [...d, i.id]) }}>{i.action}</button>
+                  <button className="btn sm primary" disabled={!canAsk} onClick={() => { p.onAsk(i.task); setDismissed(d => [...d, i.id]) }}>{i.action}</button>
                   <button className="btn sm ghost" aria-expanded={why === i.id} aria-controls={`why-${i.id}`} onClick={() => setWhy(why === i.id ? null : i.id)}>Pourquoi ?</button>
                   <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => setDismissed(d => [...d, i.id])}>Pas maintenant</button>
                 </div>
@@ -297,12 +360,12 @@ function Today(p: Common & { theme: Theme; reduced: boolean; running: boolean; p
       </section>
 
       <section aria-labelledby="num-h">
-        <div className="sectionhead"><h2 id="num-h">Les chiffres qui comptent</h2></div>
+        <div className="sectionhead"><h2 id="num-h">Les chiffres qui comptent</h2><Preview /><span>Exemples fictifs, pas vos vrais chiffres.</span></div>
         <div className="stats">
           <div className="stat"><strong>{p.empty ? 0 : 7}</strong><span>Nouveaux contacts WhatsApp</span></div>
           <div className="stat"><strong>{p.empty ? 0 : 5}</strong><span>Conversations sans réponse</span></div>
           <div className="stat"><strong>{p.empty ? 0 : 3}</strong><span>Visites demain</span></div>
-          <button className="stat" onClick={() => p.goto('approvals')}><strong>{p.pending}</strong><span>À valider par vous</span></button>
+          <div className="stat"><strong>{p.pending}</strong><span>À valider par vous</span></div>
         </div>
       </section>
     </div>
@@ -607,15 +670,15 @@ function Drawer({ task, role, details, setDetails, close, replay }: { task?: Tas
 }
 
 /* ---------- Palette Ctrl/Cmd+K (hors « Aujourd'hui ») ---------- */
-function Palette({ close, start, online }: { close: () => void; start: (tpl: string, title?: string) => void; online: boolean }) {
+function Palette({ close, run, pick }: { close: () => void; run: (task: string) => void; pick: (s: Starter) => void }) {
   const box = useDialog(close)
   const [text, setText] = useState('')
   const [i, setI] = useState(0)
   const items = useMemo(() => {
     const t = text.trim().toLowerCase()
-    const list = STARTERS.filter(s => !t || s.title.toLowerCase().includes(t)).map(s => ({ key: s.id, title: s.title, sub: s.hint, run: () => start(s.id) }))
-    return t ? [{ key: 'free', title: `Lancer : « ${text.trim()} »`, sub: 'Laya prépare une réponse, sans rien envoyer', run: () => start('libre', text.trim()) }, ...list] : list
-  }, [text, start])
+    const list = STARTERS.filter(s => !t || s.title.toLowerCase().includes(t)).map(s => ({ key: s.id, title: s.title, sub: s.hint, run: () => pick(s) }))
+    return t ? [{ key: 'free', title: `Lancer : « ${text.trim()} »`, sub: 'Laya cherche et répond, sans rien envoyer ni modifier', run: () => run(text.trim()) }, ...list] : list
+  }, [text, run, pick])
   useEffect(() => setI(0), [text])
   return (
     <div className="scrim top" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
@@ -628,7 +691,6 @@ function Palette({ close, start, online }: { close: () => void; start: (tpl: str
             if (e.key === 'ArrowUp') { e.preventDefault(); setI(x => Math.max(x - 1, 0)) }
             if (e.key === 'Enter' && items[i]) items[i].run()
           }} />
-        {!online && <div className="ph" style={{ color: 'var(--bad)' }}>Hors ligne : la tâche sera gardée et lancée au retour de la connexion.</div>}
         {!text && <div className="ph">Pour commencer</div>}
         <ul id="pal-list" role="listbox" aria-label="Actions">
           {items.length === 0 && <li role="option" aria-selected="false">Aucune action ne correspond</li>}
@@ -638,6 +700,23 @@ function Palette({ close, start, online }: { close: () => void; start: (tpl: str
             </li>
           ))}
         </ul>
+        <div className="ph" style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}><ReadOnly compact /></div>
+      </div>
+    </div>
+  )
+}
+
+function SettingsDialog({ agent, close }: { agent: Agent; close: () => void }) {
+  const box = useDialog(close)
+  return (
+    <div className="scrim top" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
+      <div className="palette" style={{ padding: 16, gap: 12 }} role="dialog" aria-modal="true" aria-label="Réglages de l'assistant" ref={box}>
+        <div className="acts" style={{ justifyContent: 'space-between' }}>
+          <h2 style={{ fontSize: 15 }}>Réglages de l'assistant</h2>
+          <button className="btn sm" data-autofocus onClick={close}>Fermer</button>
+        </div>
+        {agent.settings ? <SettingsPanel settings={agent.settings} onSaved={agent.refresh} /> : <p className="muted">Chargement…</p>}
+        <div className="small muted" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><Lock />Lecture seule : l'assistant ne peut rien envoyer ni modifier.</div>
       </div>
     </div>
   )

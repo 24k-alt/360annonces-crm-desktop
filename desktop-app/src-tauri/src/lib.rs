@@ -1,6 +1,19 @@
+mod agent;
+mod cockpit;
+mod crm;
+#[cfg(test)]
+mod mock;
+mod redact;
+mod secrets;
+mod trace;
+
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Read, sync::Mutex};
-use tauri::{webview::NewWindowResponse, Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    webview::NewWindowResponse,
+    Manager, Url, WebviewUrl, WebviewWindowBuilder,
+};
 use tauri_plugin_opener::OpenerExt;
 
 /// Workspace this build opens by default. A different workspace can be baked in at build time
@@ -182,8 +195,39 @@ fn load_local_mcp_plugins(
     Ok(scan(&dir))
 }
 
+/// Native menu. The Edit submenu is kept so copy/paste shortcuts still work once a custom menu replaces the default.
+fn build_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let cockpit = MenuItem::with_id(app, "cockpit", "Cockpit", true, Some("CmdOrCtrl+Shift+K"))?;
+    let file = Submenu::with_items(app, "Application", true, &[&cockpit, &PredefinedMenuItem::separator(app)?, &PredefinedMenuItem::quit(app, None)?])?;
+    let edit = Submenu::with_items(
+        app,
+        "Édition",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+    Menu::with_items(app, &[&file, &edit])
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .menu(|app| build_menu(app))
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "cockpit" {
+                // Off the event-loop thread: creating a window from it can deadlock on Windows.
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    let _ = cockpit::show_cockpit(&app);
+                });
+            }
+        })
         // Second launch: focus the existing window. Args/cwd are ignored on purpose (untrusted input).
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
@@ -198,6 +242,7 @@ pub fn run() {
         .setup(|app| {
             let (nav, win) = (app.handle().clone(), app.handle().clone());
             app.manage(Workspace(Mutex::new(load_workspace(app.handle()))));
+            app.manage(cockpit::AgentState::new(app.path().app_data_dir()?));
             // Tauri cannot append to the default UA, so the token is added to `navigator.userAgent`
             // (JS-visible only; the HTTP User-Agent header is NOT modified).
             let ua = format!(
@@ -230,7 +275,18 @@ pub fn run() {
                 .build()?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_local_mcp_plugins, get_workspace, set_workspace])
+        .invoke_handler(tauri::generate_handler![
+            load_local_mcp_plugins,
+            get_workspace,
+            set_workspace,
+            cockpit::agent_run,
+            cockpit::agent_cancel,
+            cockpit::agent_trace,
+            cockpit::agent_settings_get,
+            cockpit::agent_settings_set,
+            cockpit::crm_session_status,
+            cockpit::open_cockpit
+        ])
         .run(tauri::generate_context!())
         .expect("error while running 360annonces CRM");
 }
@@ -291,6 +347,15 @@ mod tests {
             "blob:https://crm.360annonces.com/x",
         ] {
             assert!(!allowed(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn cockpit_navigation_is_local_only() {
+        // the cockpit uses `is_local` alone: even the configured CRM origin is refused there
+        assert!(is_local(&u("tauri://localhost/cockpit/index.html")) && is_local(&u("http://tauri.localhost/cockpit/index.html")));
+        for bad in ["https://crm.360annonces.com/", "https://evil.io/", "http://127.0.0.1:1/", "file:///x", "javascript:1"] {
+            assert!(!is_local(&u(bad)), "{bad}");
         }
     }
 

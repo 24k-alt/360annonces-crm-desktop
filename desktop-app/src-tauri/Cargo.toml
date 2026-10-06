@@ -1,6 +1,6 @@
 [package]
 name = "crm360"
-version = "0.1.0"
+version = "0.2.0"
 description = "360annonces CRM desktop client"
 edition = "2021"
 rust-version = "1.77"
@@ -18,6 +18,18 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# HTTP to OpenRouter and the CRM. rustls with bundled roots: no OpenSSL, same behaviour on Windows/macOS/Linux.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Async runtime for the agent loop (select!, timeouts, watch channel). Already in the tree via tauri; features pinned here.
+tokio = { version = "1", features = ["rt", "macros", "time", "sync", "net", "io-util"] }
+
+# OS credential store for the OpenRouter key. Platform backends are chosen explicitly: without one, keyring silently uses a mock.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 
 # Size/RAM profile: native WebView (WebView2 / WKWebView / WebKitGTK), no bundled Chromium, no Node runtime.
 [profile.release]

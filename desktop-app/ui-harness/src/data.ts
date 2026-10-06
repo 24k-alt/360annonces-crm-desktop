@@ -25,7 +25,7 @@ export type Approval = {
   status: ApprovalStatus; edited?: boolean
 }
 export type Memory = { id: string; text: string; kind: 'Règle' | 'Info'; by: string; at: string }
-export type Idea = { id: string; title: string; body: string; action: string; tpl: string; why: string }
+export type Idea = { id: string; title: string; body: string; action: string; tpl: string; why: string; task: string }
 
 const s = (label: string, orb: OrbState, tool: string, args: string, out: string, ms: number): Step => ({ label, orb, tool, args, out, ms })
 
@@ -132,7 +132,14 @@ export const TEMPLATES: Template[] = [
   },
 ]
 export const tpl = (id: string) => TEMPLATES.find(t => t.id === id) ?? TEMPLATES[TEMPLATES.length - 1]
-export const STARTERS = TEMPLATES.filter(t => t.id !== 'libre')
+// Slice 1 starters: READ-ONLY requests that run for real. `edit`: needs a name, so it pre-fills the bar instead of running.
+export type Starter = { id: string; title: string; hint: string; task: string; edit?: boolean }
+export const STARTERS: Starter[] = [
+  { id: 's1', title: 'Qui attend une réponse ?', hint: 'Sans réponse depuis 24 h', task: 'Quelles conversations attendent une réponse depuis plus de 24 h ?' },
+  { id: 's2', title: 'Faire le point de la journée', hint: 'Ce qui est fait, ce qui reste', task: 'Fais le point de la journée : messages, visites, ce qui reste à faire.' },
+  { id: 's3', title: "Résumer le dossier d'un client", hint: 'Il suffit de donner le nom', task: 'Résume en 5 lignes le dossier de ', edit: true },
+  { id: 's4', title: 'Préparer les visites de demain', hint: 'Un mémo par visite', task: 'Prépare un mémo pour chacune des visites de demain.' },
+]
 
 export const INITIAL_TASKS: Task[] = [
   { id: 't3', title: 'Préparer les visites de demain', col: 'running', tpl: 'visites', step: 1, when: 'Démarré il y a 1 min' },
@@ -159,8 +166,8 @@ export const INITIAL_MEMORY: Memory[] = [
 ]
 
 export const IDEAS: Idea[] = [
-  { id: 'i1', title: '5 conversations WhatsApp attendent une réponse', body: "La plus ancienne date de 5 jours. J'ai déjà des idées de messages.", action: 'Préparer les relances', tpl: 'relance', why: "Le dernier message de ces clients date de plus de 24 h et personne n'a répondu. C'est une de vos règles : répondre sous 24 h. Je ne fais que préparer, rien n'est envoyé sans votre accord." },
-  { id: 'i2', title: '3 visites demain, dont une à 10 h', body: 'Je peux préparer un mémo par visite et un rappel au client.', action: 'Préparer les visites', tpl: 'visites', why: "Vous avez 3 visites à l'agenda demain. Les rappels sont recommandés la veille." },
-  { id: 'i3', title: 'Un mandat attend une signature depuis 4 jours', body: "Villa de Californie : M. Alami n'a pas encore signé.", action: 'Écrire un rappel', tpl: 'signature', why: "Le document a été envoyé le 2 et n'est toujours pas signé. Au-delà de 3 jours, un rappel augmente souvent les chances de signature." },
-  { id: 'i4', title: '2 nouveaux contacts sont arrivés cette nuit', body: "Aucune réponse n'est partie. Voulez-vous un message d'accueil ?", action: 'Répondre', tpl: 'nouveaux', why: "Deux personnes vous ont écrit après la fermeture. Répondre vite augmente les chances de rendez-vous." },
+  { id: 'i1', title: '5 conversations WhatsApp attendent une réponse', body: "La plus ancienne date de 5 jours. Je peux vous les lister.", action: 'Voir avec Laya', tpl: 'relance', why: "Le dernier message de ces clients date de plus de 24 h et personne n'a répondu. C'est une de vos règles : répondre sous 24 h. Je ne fais que lire, je n'envoie rien.", task: "Quelles conversations WhatsApp attendent une réponse ? Donne la plus ancienne en premier." },
+  { id: 'i2', title: '3 visites demain, dont une à 10 h', body: 'Je peux préparer un mémo par visite.', action: 'Voir avec Laya', tpl: 'visites', why: "Vous avez 3 visites à l'agenda demain. Un mémo par visite aide à les préparer.", task: "Prépare un mémo pour chacune des visites de demain." },
+  { id: 'i3', title: 'Un mandat attend une signature depuis 4 jours', body: "Villa de Californie : M. Alami n'a pas encore signé.", action: 'Voir avec Laya', tpl: 'signature', why: "Le document a été envoyé le 2 et n'est toujours pas signé. Au-delà de 3 jours, un rappel augmente souvent les chances de signature (à faire par vous pour l'instant).", task: "Quels mandats attendent une signature depuis plus de 3 jours ?" },
+  { id: 'i4', title: '2 nouveaux contacts sont arrivés cette nuit', body: "Aucune réponse n'est partie. Voulez-vous les voir ?", action: 'Voir avec Laya', tpl: 'nouveaux', why: "Deux personnes vous ont écrit après la fermeture. Répondre vite augmente les chances de rendez-vous.", task: "Y a-t-il de nouveaux contacts WhatsApp arrivés cette nuit ?" },
 ]
